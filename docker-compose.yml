@@ -1,27 +1,20 @@
-# Two separate containers (Flask backend and Streamlit frontend) connected through a named Docker network
+# Two separate containers (Flask backend and Streamlit frontend), each built from its own Dockerfile.
+# The frontend shares the backend's Docker network namespace (network_mode: service:backend),
+# so it reaches the API at localhost:7860 without depending on container-to-container bridge traffic,
+# which GitHub Codespaces blocks.
 services:
   backend:
-    build: ./backend_files              # built from the backend Dockerfile
+    build: ./backend_files
     container_name: superkart-backend
     ports:
-      - "7860:7860"                     # Flask API, forwarded by Codespaces
-    networks:
-      - superkart-network               # (1) attach the backend to the network
+      - "7860:7860"                     # Flask API
+      - "8501:8501"                     # Streamlit app (published here because the frontend shares this network namespace)
 
   frontend:
-    build: ./frontend_files             # built from the frontend Dockerfile
+    build: ./frontend_files
     container_name: superkart-frontend
-    ports:
-      - "8501:8501"                     # Streamlit app, forwarded by Codespaces
+    network_mode: "service:backend"     # join the backend container's network namespace
     environment:
-      - BACKEND_URL=http://backend:7860 # the frontend reaches the backend by its service name on the network
+      - BACKEND_URL=http://localhost:7860
     depends_on:
       - backend
-    networks:
-      - superkart-network               # (1) attach the frontend to the same network
-
-# (2) Create the network shared by both containers
-networks:
-  superkart-network:
-    name: superkart-network             # fixed name, so it is not prefixed with the project name
-    driver: bridge
